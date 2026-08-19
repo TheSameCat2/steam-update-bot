@@ -1,0 +1,26 @@
+services:
+  steam-update-bot:
+    build:
+      context: .
+    container_name: steam-update-bot
+    env_file:
+      - .env
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__BotDb: Data Source=/data/steam-update-bot.db
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - steam-update-bot-data:/data
+    restart: unless-stopped
+    stop_grace_period: 1m
+    mem_limit: 512m
+    cpus: "1.0"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  steam-update-bot-data:

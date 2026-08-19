@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="../SteamUpdateBot.Core/SteamUpdateBot.Core.csproj" />
+    <ProjectReference Include="../SteamUpdateBot.Steam/SteamUpdateBot.Steam.csproj" />
+    <ProjectReference Include="../SteamUpdateBot.Persistence/SteamUpdateBot.Persistence.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Discord.Net.Interactions" />
+    <PackageReference Include="Discord.Net.WebSocket" />
+  </ItemGroup>
+</Project>

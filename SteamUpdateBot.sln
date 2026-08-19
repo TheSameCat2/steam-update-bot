@@ -1,0 +1,42 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamUpdateBot.Core", "src\\SteamUpdateBot.Core\\SteamUpdateBot.Core.csproj", "{163A085C-C22E-48CB-9F72-438FF08A60BB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamUpdateBot.Steam", "src\\SteamUpdateBot.Steam\\SteamUpdateBot.Steam.csproj", "{80AF33B0-2F8D-4867-AD80-262437D0F283}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamUpdateBot.Persistence", "src\\SteamUpdateBot.Persistence\\SteamUpdateBot.Persistence.csproj", "{93570A9C-E3AA-4DDC-B3A2-4B44B8918BB0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamUpdateBot.App", "src\\SteamUpdateBot.App\\SteamUpdateBot.App.csproj", "{E8D7B8E7-79CB-461B-96CD-7D68D383A397}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SteamUpdateBot.Tests", "tests\\SteamUpdateBot.Tests\\SteamUpdateBot.Tests.csproj", "{00B06CDA-E7FD-4743-ACDF-D99854C4CD2B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{163A085C-C22E-48CB-9F72-438FF08A60BB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{163A085C-C22E-48CB-9F72-438FF08A60BB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{163A085C-C22E-48CB-9F72-438FF08A60BB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{163A085C-C22E-48CB-9F72-438FF08A60BB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{80AF33B0-2F8D-4867-AD80-262437D0F283}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{80AF33B0-2F8D-4867-AD80-262437D0F283}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{80AF33B0-2F8D-4867-AD80-262437D0F283}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{80AF33B0-2F8D-4867-AD80-262437D0F283}.Release|Any CPU.Build.0 = Release|Any CPU
+		{93570A9C-E3AA-4DDC-B3A2-4B44B8918BB0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{93570A9C-E3AA-4DDC-B3A2-4B44B8918BB0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{93570A9C-E3AA-4DDC-B3A2-4B44B8918BB0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{93570A9C-E3AA-4DDC-B3A2-4B44B8918BB0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E8D7B8E7-79CB-461B-96CD-7D68D383A397}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E8D7B8E7-79CB-461B-96CD-7D68D383A397}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E8D7B8E7-79CB-461B-96CD-7D68D383A397}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E8D7B8E7-79CB-461B-96CD-7D68D383A397}.Release|Any CPU.Build.0 = Release|Any CPU
+		{00B06CDA-E7FD-4743-ACDF-D99854C4CD2B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{00B06CDA-E7FD-4743-ACDF-D99854C4CD2B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{00B06CDA-E7FD-4743-ACDF-D99854C4CD2B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{00B06CDA-E7FD-4743-ACDF-D99854C4CD2B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
