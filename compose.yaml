@@ -1,3 +1,8 @@
+# Pinned so the data volume name never depends on the checkout directory name.
+# Without this, Compose derives the project name from the folder, and renaming or
+# re-cloning the repository silently starts the bot against an empty database.
+name: steam-update-bot
+
 services:
   steam-update-bot:
     build:
@@ -11,7 +16,9 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
-      - steam-update-bot-data:/data
+      # Defaults to the named volume. Set BOT_DATA_PATH to an absolute host path
+      # (on Unraid, /mnt/user/appdata/steam-update-bot) to use a bind mount instead.
+      - ${BOT_DATA_PATH:-steam-update-bot-data}:/data
     restart: unless-stopped
     stop_grace_period: 1m
     mem_limit: 512m
