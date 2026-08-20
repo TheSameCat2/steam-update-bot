@@ -44,4 +44,5 @@ public sealed record BotStatusSnapshot(
     DateTimeOffset? LastSuccessfulPollUtc,
     DateTimeOffset? OldestSuccessfulPollUtc,
     string? LastError,
-    int AbandonedDeliveryCount = 0);
+    int AbandonedDeliveryCount = 0,
+    DateTimeOffset? OldestUndeliveredDetectedAtUtc = null);

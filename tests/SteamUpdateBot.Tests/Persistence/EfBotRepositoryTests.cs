@@ -237,6 +237,64 @@ public sealed class EfBotRepositoryTests
     }
 
     [Fact]
+    public async Task StatusReportsATransientlyStuckDeliveryThatNeverIncrementsAttemptCount()
+    {
+        await using var database = await TestSqliteDatabase.CreateAsync();
+        var now = TestNow;
+        var game = CreateGame(277, now);
+        var announcement = CreateAnnouncement(game.AppId, "stuck", now);
+        await database.Repository.TryAddGameAsync(game, [], TestContext.Current.CancellationToken);
+        await database.Repository.CommitPollAsync(
+            game.AppId,
+            now,
+            now.AddMinutes(5),
+            [announcement],
+            TestContext.Current.CancellationToken);
+        await database.Repository.RecordDeliveryFailureAsync(
+            game.AppId,
+            announcement.Gid,
+            now.AddMinutes(1),
+            "Configured announcement channel is unavailable",
+            TestContext.Current.CancellationToken,
+            incrementAttempt: false);
+
+        var status = await database.Repository.GetStatusAsync(true, TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, status.FailedDeliveryCount);
+        Assert.Equal(1, status.PendingDeliveryCount);
+        Assert.Equal(now, status.OldestUndeliveredDetectedAtUtc);
+        Assert.Equal("One or more Discord announcement deliveries are retrying.", status.LastError);
+    }
+
+    [Fact]
+    public async Task StatusReportsNoUndeliveredAnnouncementOnceEverythingIsDelivered()
+    {
+        await using var database = await TestSqliteDatabase.CreateAsync();
+        var now = TestNow;
+        var game = CreateGame(278, now);
+        var announcement = CreateAnnouncement(game.AppId, "done", now);
+        await database.Repository.TryAddGameAsync(game, [], TestContext.Current.CancellationToken);
+        await database.Repository.CommitPollAsync(
+            game.AppId,
+            now,
+            now.AddMinutes(5),
+            [announcement],
+            TestContext.Current.CancellationToken);
+        await database.Repository.MarkDeliveredAsync(
+            game.AppId,
+            announcement.Gid,
+            "42",
+            now,
+            TestContext.Current.CancellationToken);
+
+        var status = await database.Repository.GetStatusAsync(true, TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, status.FailedDeliveryCount);
+        Assert.Equal(0, status.PendingDeliveryCount);
+        Assert.Null(status.OldestUndeliveredDetectedAtUtc);
+    }
+
+    [Fact]
     public async Task TransientDeliveryFailureDoesNotIncrementAttemptCount()
     {
         await using var database = await TestSqliteDatabase.CreateAsync();

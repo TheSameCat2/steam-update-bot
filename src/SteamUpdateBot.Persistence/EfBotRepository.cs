@@ -415,10 +415,21 @@ public sealed class EfBotRepository : IBotRepository
                         || announcement.DeliveryState == AnnouncementDeliveryState.Publishing,
                     cancellationToken)
                 .ConfigureAwait(false);
+            // Transient publish failures deliberately leave AttemptCount at zero, so a
+            // recorded error is the only signal that such a delivery is stuck retrying.
             var failedDeliveryCount = await context.Announcements
                 .CountAsync(
-                    announcement => announcement.DeliveryState == AnnouncementDeliveryState.Pending && announcement.AttemptCount > 0,
+                    announcement => announcement.DeliveryState == AnnouncementDeliveryState.Pending
+                        && (announcement.AttemptCount > 0 || announcement.LastError != null),
                     cancellationToken)
+                .ConfigureAwait(false);
+            var oldestUndeliveredDetectedAtUtc = await context.Announcements
+                .Where(announcement =>
+                    announcement.DeliveryState == AnnouncementDeliveryState.Pending
+                    || announcement.DeliveryState == AnnouncementDeliveryState.Publishing)
+                .OrderBy(announcement => announcement.DetectedAtUtc)
+                .Select(announcement => (DateTimeOffset?)announcement.DetectedAtUtc)
+                .FirstOrDefaultAsync(cancellationToken)
                 .ConfigureAwait(false);
             var abandonedDeliveryCount = await context.Announcements
                 .CountAsync(
@@ -458,7 +469,8 @@ public sealed class EfBotRepository : IBotRepository
                 lastSuccessfulPoll,
                 oldestSuccessfulPoll,
                 lastError,
-                abandonedDeliveryCount);
+                abandonedDeliveryCount,
+                oldestUndeliveredDetectedAtUtc);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

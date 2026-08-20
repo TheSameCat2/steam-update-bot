@@ -44,9 +44,12 @@ public sealed class DiscordAnnouncementPublisher : IAnnouncementPublisher
                     new RequestOptions { CancelToken = cancellationToken }).ConfigureAwait(false) as IMessageChannel;
             }
 
+            // The REST fallback above is authoritative, so a still-unresolved channel means it
+            // was deleted or the bot lost access. Treating that as transient would retry forever
+            // without ever incrementing the attempt count, so let it reach the poison budget.
             if (channel is null)
             {
-                throw new PublisherTransientException(
+                throw new InvalidOperationException(
                     $"Configured announcement channel {_options.AnnouncementChannelId} is unavailable or cannot receive messages.");
             }
 

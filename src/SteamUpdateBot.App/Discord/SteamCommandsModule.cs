@@ -132,6 +132,12 @@ public sealed class SteamCommandsModule : InteractionModuleBase<SocketInteractio
             .Append("Last successful poll: ").AppendLine(FormatTimestamp(status.LastSuccessfulPollUtc))
             .Append("Oldest successful poll: ").AppendLine(FormatTimestamp(status.OldestSuccessfulPollUtc));
 
+        if (status.OldestUndeliveredDetectedAtUtc is not null)
+        {
+            response.Append("Oldest undelivered announcement: ")
+                .AppendLine(FormatTimestamp(status.OldestUndeliveredDetectedAtUtc));
+        }
+
         if (!string.IsNullOrWhiteSpace(status.LastError))
         {
             response.Append("Last error: ").AppendLine(status.LastError);

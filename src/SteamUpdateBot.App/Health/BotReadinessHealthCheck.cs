@@ -6,6 +6,13 @@ namespace SteamUpdateBot.App.Health;
 
 public sealed class BotReadinessHealthCheck : IHealthCheck
 {
+    /// <summary>
+    /// How long an undelivered announcement may sit in the outbox before readiness fails.
+    /// Transient publish failures retry indefinitely without incrementing an attempt count,
+    /// so age is what distinguishes a passing hiccup from a permanently broken channel.
+    /// </summary>
+    public const int StuckDeliveryGraceMinutes = 60;
+
     private readonly IBotRepository _repository;
     private readonly IBotRuntimeState _runtimeState;
     private readonly SteamOptions _steamOptions;
@@ -38,6 +45,7 @@ public sealed class BotReadinessHealthCheck : IHealthCheck
             ["failedDeliveryCount"] = status.FailedDeliveryCount,
             ["abandonedDeliveryCount"] = status.AbandonedDeliveryCount,
             ["oldestSuccessfulPollUtc"] = status.OldestSuccessfulPollUtc?.ToString("O") ?? "never",
+            ["oldestUndeliveredDetectedAtUtc"] = status.OldestUndeliveredDetectedAtUtc?.ToString("O") ?? "n/a",
         };
 
         if (!status.DatabaseReady)
@@ -60,16 +68,26 @@ public sealed class BotReadinessHealthCheck : IHealthCheck
         }
 
         var deliveryIsRetrying = status.FailedDeliveryCount > 0;
-        if (pollingIsStale && deliveryIsRetrying)
+        var deliveryIsStuck = status.OldestUndeliveredDetectedAtUtc is { } oldestUndeliveredUtc
+            && _timeProvider.GetUtcNow() - oldestUndeliveredUtc > TimeSpan.FromMinutes(StuckDeliveryGraceMinutes);
+
+        if (pollingIsStale && (deliveryIsRetrying || deliveryIsStuck))
         {
             return HealthCheckResult.Unhealthy(
-                "Steam polling is stale. Discord announcement delivery is retrying.",
+                "Steam polling is stale. Discord announcement delivery is not draining.",
                 data: data);
         }
 
         if (pollingIsStale)
         {
             return HealthCheckResult.Unhealthy("Steam polling is stale.", data: data);
+        }
+
+        if (deliveryIsStuck)
+        {
+            return HealthCheckResult.Unhealthy(
+                $"Discord announcement delivery has not drained for over {StuckDeliveryGraceMinutes} minutes.",
+                data: data);
         }
 
         if (deliveryIsRetrying)

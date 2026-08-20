@@ -122,7 +122,68 @@ public sealed class BotReadinessHealthCheckTests
             TestContext.Current.CancellationToken);
 
         Assert.Equal(HealthStatus.Unhealthy, result.Status);
-        Assert.Equal("Steam polling is stale. Discord announcement delivery is retrying.", result.Description);
+        Assert.Equal("Steam polling is stale. Discord announcement delivery is not draining.", result.Description);
+    }
+
+    [Fact]
+    public async Task OutboxStuckBeyondTheGraceMakesReadinessUnhealthyWithoutAnyAttemptCount()
+    {
+        var now = new DateTimeOffset(2026, 8, 16, 12, 0, 0, TimeSpan.Zero);
+        var repository = Substitute.For<IBotRepository>();
+        repository.GetStatusAsync(true, Arg.Any<CancellationToken>()).Returns(Task.FromResult(
+            new BotStatusSnapshot(
+                true,
+                true,
+                1,
+                PendingDeliveryCount: 3,
+                FailedDeliveryCount: 0,
+                now,
+                now,
+                null,
+                AbandonedDeliveryCount: 0,
+                OldestUndeliveredDetectedAtUtc: now.AddMinutes(-(BotReadinessHealthCheck.StuckDeliveryGraceMinutes + 1)))));
+        var healthCheck = new BotReadinessHealthCheck(
+            repository,
+            new ConnectedRuntimeState(),
+            new SteamOptions { PollIntervalMinutes = 5 },
+            new MutableTimeProvider(now));
+
+        HealthCheckResult result = await healthCheck.CheckHealthAsync(
+            new HealthCheckContext(),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HealthStatus.Unhealthy, result.Status);
+        Assert.Contains("has not drained", result.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RecentlyQueuedAnnouncementWithinTheGraceStaysReady()
+    {
+        var now = new DateTimeOffset(2026, 8, 16, 12, 0, 0, TimeSpan.Zero);
+        var repository = Substitute.For<IBotRepository>();
+        repository.GetStatusAsync(true, Arg.Any<CancellationToken>()).Returns(Task.FromResult(
+            new BotStatusSnapshot(
+                true,
+                true,
+                1,
+                PendingDeliveryCount: 1,
+                FailedDeliveryCount: 0,
+                now,
+                now,
+                null,
+                AbandonedDeliveryCount: 0,
+                OldestUndeliveredDetectedAtUtc: now.AddMinutes(-1))));
+        var healthCheck = new BotReadinessHealthCheck(
+            repository,
+            new ConnectedRuntimeState(),
+            new SteamOptions { PollIntervalMinutes = 5 },
+            new MutableTimeProvider(now));
+
+        HealthCheckResult result = await healthCheck.CheckHealthAsync(
+            new HealthCheckContext(),
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(HealthStatus.Healthy, result.Status);
     }
 
     private sealed class ConnectedRuntimeState : IBotRuntimeState
