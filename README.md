@@ -18,67 +18,56 @@ The manager role can add and remove games. Discord Administrators have a recover
 
 ## Run with Docker Compose
 
+CI publishes `ghcr.io/thesamecat2/steam-update-bot` from `main` (`latest` and `sha-<commit>`). The first package created by GHCR is private; set it public under the repo's Packages settings if you want unauthenticated pulls.
+
 ```sh
 git clone https://github.com/TheSameCat2/steam-update-bot.git
 cd steam-update-bot
 cp .env.example .env
 # edit .env
-docker compose up --build -d
+docker compose pull
+docker compose up -d
 docker compose logs -f steam-update-bot
 ```
+
+`docker compose up --build` still builds from the local checkout if you are changing the image.
 
 Find a game's App ID on its Steam store page (the number in `/app/570/` and similar URLs), then `/steam add` it. The bot silently baselines whatever is already on the feed so you are not flooded with last month's notes. After that, new posts show up in the channel.
 
 ## Recommended setup on Unraid
 
-Unraid does not ship `docker compose`. Install **Compose Manager Plus** from Community Applications (Apps tab) — it installs the Compose CLI plugin and adds a Compose tab to the Docker page. Everything below works from the Unraid terminal or over SSH; the plugin's web UI is optional.
+Unraid does not ship `docker compose`. Use Portainer, Compose Manager Plus, or the Compose CLI plugin. Deploy the published image; you do not need a source checkout or a local build. If your stack UI tries to build because `compose.yaml` still has a `build:` key, delete that key. Pulling `ghcr.io/thesamecat2/steam-update-bot` is enough.
 
-### 1. Pick directories
-
-This project builds from source, so the whole repository is the Docker build context. Do not put it in Compose Manager's default projects folder (`/boot/config/plugins/compose.manager/projects`) — that path is on the USB boot flash drive, which is slow and has limited write endurance. Use a share instead:
+### 1. Data directory
 
 ```sh
-mkdir -p /mnt/user/appdata/steam-update-bot/{source,data}
-```
-
-Keeping both under one appdata folder means the Appdata Backup plugin covers the database. If you would rather keep the source out of your backups, put `source` on any other share — only `data` needs to live in appdata.
-
-### 2. Clone and prepare the data directory
-
-```sh
-cd /mnt/user/appdata/steam-update-bot/source
-git clone https://github.com/TheSameCat2/steam-update-bot.git .
+mkdir -p /mnt/user/appdata/steam-update-bot/data
 chown -R 1654:1654 /mnt/user/appdata/steam-update-bot/data
 ```
 
-The `chown` is the step people miss. The image runs as uid 1654, and a bind mount keeps the host directory's ownership rather than the image's, so without it SQLite cannot create the database and the container restarts in a loop.
+The `chown` is the step people miss. The image runs as uid 1654, and a bind mount keeps the host directory's ownership rather than the image's, so without it SQLite cannot create the database and the container restarts in a loop. Keep this path in appdata so the Appdata Backup plugin covers the database. Named volumes live on the Docker vDisk, which that plugin does not back up and which is destroyed when the vDisk is recreated.
 
-### 3. Configure
+### 2. Configure
 
-```sh
-cp .env.example .env
-nano .env
-chmod 600 .env
-```
-
-Fill in the Discord token and the three IDs, then uncomment and set the data path so the database lands on your appdata share instead of the named volume:
+Copy `compose.yaml` and `.env.example` into the stack (Portainer web editor is fine), then set the Discord token, the three IDs, and the data path:
 
 ```ini
 BOT_DATA_PATH=/mnt/user/appdata/steam-update-bot/data
 ```
 
-`.env` holds your bot token in plain text. `chmod 600` keeps it out of reach of other users, and it is worth confirming the appdata share is not exported over SMB or NFS.
+`.env` holds your bot token in plain text. `chmod 600` if it lives on disk, and do not export the appdata share over SMB or NFS.
 
-### 4. Start it
+### 3. Start it
 
 ```sh
-docker compose up --build -d
+docker compose pull
+docker compose up -d
 docker compose logs -f steam-update-bot
 ```
 
-The first build downloads the .NET SDK image (roughly 1 GB) onto the Docker vDisk, which defaults to 20 GB. Check headroom with `docker system df` if you are close to full. Wait for `Discord gateway ready for guild` in the logs — the bot registers its slash commands at that point, so `/steam` will not appear in Discord until you see it.
+Wait for `Discord gateway ready for guild` in the logs. The bot registers its slash commands at that point, so `/steam` will not appear in Discord until you see it.
 
-### 5. Verify
+### 4. Verify
 
 ```sh
 docker compose ps
@@ -89,14 +78,7 @@ A fresh install reports `Healthy`: with no games monitored yet there is nothing 
 
 ### Updating
 
-```sh
-cd /mnt/user/appdata/steam-update-bot/source
-git pull
-docker compose up --build -d
-docker image prune -f
-```
-
-The prune reclaims the superseded build layers, which otherwise accumulate on the vDisk after every rebuild.
+Pull `latest` (or pin `IMAGE_TAG` to a `sha-*` tag) and recreate the stack. Do not `git pull` and rebuild unless you are running a local checkout on purpose.
 
 ### Backups
 

@@ -5,6 +5,7 @@ name: steam-update-bot
 
 services:
   steam-update-bot:
+    image: ghcr.io/thesamecat2/steam-update-bot:${IMAGE_TAG:-latest}
     build:
       context: .
     container_name: steam-update-bot
@@ -17,7 +18,7 @@ services:
       - "127.0.0.1:8080:8080"
     volumes:
       # Defaults to the named volume. Set BOT_DATA_PATH to an absolute host path
-      # (on Unraid, /mnt/user/appdata/steam-update-bot) to use a bind mount instead.
+      # (on Unraid, /mnt/user/appdata/steam-update-bot/data) to use a bind mount.
       - ${BOT_DATA_PATH:-steam-update-bot-data}:/data
     restart: unless-stopped
     stop_grace_period: 1m
