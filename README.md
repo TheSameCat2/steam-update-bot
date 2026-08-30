@@ -18,7 +18,7 @@ The manager role can add and remove games. Discord Administrators have a recover
 
 ## Run with Docker Compose
 
-CI publishes `ghcr.io/thesamecat2/steam-update-bot` from `main` (`latest` and `sha-<commit>`). The first package created by GHCR is private; set it public under the repo's Packages settings if you want unauthenticated pulls.
+CI publishes `ghcr.io/thesamecat2/steam-update-bot` from `main` (`latest` and `sha-<commit>`) as a multi-arch image for `linux/amd64` and `linux/arm64`. The first package created by GHCR is private; set it public under the repo's Packages settings if you want unauthenticated pulls.
 
 ```sh
 git clone https://github.com/TheSameCat2/steam-update-bot.git

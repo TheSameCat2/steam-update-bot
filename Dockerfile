@@ -1,9 +1,10 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+ARG TARGETARCH
 WORKDIR /src
 
 COPY . .
-RUN dotnet restore SteamUpdateBot.sln \
-    && dotnet publish src/SteamUpdateBot.App/SteamUpdateBot.App.csproj --configuration Release --no-restore --output /app/publish
+RUN dotnet restore SteamUpdateBot.sln -a $TARGETARCH \
+    && dotnet publish src/SteamUpdateBot.App/SteamUpdateBot.App.csproj --configuration Release --no-restore -a $TARGETARCH --output /app/publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 USER root
