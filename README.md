@@ -1,136 +1,204 @@
-# Steam Update Bot
+<p align="center">
+  <img src="assets/logo.png" alt="Steam Update Bot Logo" width="160" />
+</p>
 
-Patch notes, in Discord, when they actually drop.
+<h1 align="center">Steam Update Bot</h1>
 
-This is a single-tenant homelab bot for one server. Point it at the games you play, and it posts official Steam community announcements into a channel you choose — patch notes, hotfixes, roadmaps, and yes, the occasional publisher trailer. It reads Steam's public news feed, so you do not need a Steam API key.
+<p align="center">
+  <strong>Patch notes, in Discord, when they actually drop.</strong><br />
+  A single-tenant, self-hosted Discord bot that monitors official Steam community announcements for the games you care about.
+</p>
 
-It does **not** watch silent depot or build bumps. If the game updates and nobody writes an announcement, the bot stays quiet. That is by design.
+<p align="center">
+  <a href="https://github.com/TheSameCat2/steam-update-bot/actions/workflows/ci.yml"><img src="https://github.com/TheSameCat2/steam-update-bot/actions/workflows/ci.yml/badge.svg" alt="CI Status" /></a>
+  <a href="https://github.com/TheSameCat2/steam-update-bot/pkgs/container/steam-update-bot"><img src="https://img.shields.io/badge/docker-GHCR-blue?logo=docker" alt="Docker GHCR" /></a>
+  <a href="https://github.com/TheSameCat2/steam-update-bot/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/.NET-10.0-purple?logo=dotnet" alt=".NET 10" />
+  <img src="https://img.shields.io/badge/platform-linux%2Famd64%20%7C%20linux%2Farm64-informational" alt="Multi-Arch: amd64 and arm64" />
+</p>
 
-## Discord setup
+---
 
-1. Create an application and bot in the [Discord Developer Portal](https://discord.com/developers/applications).
-2. Install it into the target server with the `bot` and `applications.commands` scopes.
-3. Grant the bot **View Channel**, **Send Messages**, and **Embed Links** in the announcement channel. It does not need Administrator, Message Content, Guild Members, or Read Message History.
-4. Enable Discord Developer Mode, then copy the server, announcement-channel, and manager-role IDs.
-5. Copy `.env.example` to `.env` and enter the bot token and IDs.
+## Why Steam Update Bot?
 
-The manager role can add and remove games. Discord Administrators have a recovery bypass. Anyone in the server can list games and check status. All command replies are ephemeral, so the announcement channel stays clean.
+Public multi-tenant Discord bots often come with paid tiers, spammy command replies, shared queue delays, and security concerns. **Steam Update Bot** is built specifically for homelabbers, self-hosters, and gaming groups who want a dedicated, private, and reliable solution.
 
-## Run with Docker Compose
+- **Zero API Keys Required**: Consumes Steam's public community news feeds directly. You do not need a Steam developer account or Web API key.
+- **Signal Over Noise**: Posts patch notes, hotfixes, roadmaps, and major news. It ignores silent Steam depot or build bumps, alerting only when developers publish actual news.
+- **Pristine Channels**: All slash commands (`/steam add`, `/steam list`, `/steam status`) respond ephemerally. Your announcement channel stays completely uncluttered.
+- **Smart Baselining**: Adding a game silently baselines its existing announcements so your server is not spammed with historical backlog.
+- **Guaranteed At-Least-Once Delivery**: Powered by an EF Core SQLite transactional outbox with Write-Ahead Logging (WAL). Even if Discord has an outage or rate-limits requests, announcements queue safely and retry automatically.
+- **Homelab Ready**: Multi-arch container image (`linux/amd64` and `linux/arm64`), minimal memory footprint (< 512 MB), built-in health probes, and first-class Unraid support.
 
-CI publishes `ghcr.io/thesamecat2/steam-update-bot` from `main` (`latest` and `sha-<commit>`) as a multi-arch image for `linux/amd64` and `linux/arm64`. The first package created by GHCR is private; set it public under the repo's Packages settings if you want unauthenticated pulls.
+---
+
+## Quick Start with Docker Compose
+
+Deploy the official multi-arch container image published on GHCR:
 
 ```sh
+# 1. Clone the repository
 git clone https://github.com/TheSameCat2/steam-update-bot.git
 cd steam-update-bot
+
+# 2. Copy and configure environment variables
 cp .env.example .env
-# edit .env
+# Edit .env with your Discord Bot Token and Server IDs
+
+# 3. Pull and start the container
 docker compose pull
 docker compose up -d
 docker compose logs -f steam-update-bot
 ```
 
-`docker compose up --build` still builds from the local checkout if you are changing the image.
+Once you see `Discord gateway ready for guild` in the logs, the bot has registered its slash commands in your server.
 
-Find a game's App ID on its Steam store page (the number in `/app/570/` and similar URLs), then `/steam add` it. The bot silently baselines whatever is already on the feed so you are not flooded with last month's notes. After that, new posts show up in the channel.
+To start tracking a game:
+1. Find the game's **App ID** on its Steam Store page (the number in `store.steampowered.com/app/570/`).
+2. Run `/steam add app-id:570` in Discord.
 
-## Recommended setup on Unraid
+The bot will silently baseline existing posts, and new patch notes will be delivered directly to your announcement channel.
 
-Unraid does not ship `docker compose`. Use Portainer, Compose Manager Plus, or the Compose CLI plugin. Deploy the published image; you do not need a source checkout or a local build. Pulling `ghcr.io/thesamecat2/steam-update-bot` is enough.
+---
 
-### 1. Data directory
+## Discord Setup
+
+1. **Create Application**: Go to the [Discord Developer Portal](https://discord.com/developers/applications) and create a new Application.
+2. **Configure Bot**: Under the **Bot** tab, generate a token. Uncheck *Public Bot* if you want to keep it private to your server.
+3. **Invite to Server**: Under **OAuth2 -> URL Generator**, select the `bot` and `applications.commands` scopes.
+4. **Channel Permissions**: Grant the bot the following minimal permissions in your announcement channel:
+   - **View Channel**
+   - **Send Messages**
+   - **Embed Links**
+   *(Administrator, Message Content, and Read History permissions are **not** needed).*
+5. **Collect IDs**: Enable Discord Developer Mode (*User Settings -> Advanced -> Developer Mode*), then right-click to copy:
+   - Your **Server (Guild) ID**
+   - Your **Announcement Channel ID**
+   - Your **Manager Role ID** (members with this role or Server Administrators can add/remove games)
+6. Add these IDs and your token to `.env`.
+
+---
+
+## Recommended Setup on Unraid
+
+Unraid users can run Steam Update Bot via Portainer, Compose Manager Plus, or the Docker Compose CLI plugin.
+
+### 1. Create the Appdata Directory
+
+The container runs as an unprivileged user (UID `1654`). A bind mount preserves host ownership, so set ownership before starting:
 
 ```sh
 mkdir -p /mnt/user/appdata/steam-update-bot/data
 chown -R 1654:1654 /mnt/user/appdata/steam-update-bot/data
 ```
 
-The `chown` is the step people miss. The image runs as uid 1654, and a bind mount keeps the host directory's ownership rather than the image's, so without it SQLite cannot create the database and the container restarts in a loop. Keep this path in appdata so the Appdata Backup plugin covers the database. Named volumes live on the Docker vDisk, which that plugin does not back up and which is destroyed when the vDisk is recreated.
+> **Why appdata?** Storing the database in `/mnt/user/appdata/` ensures it is included in Unraid's **Appdata Backup** plugin and survives Docker vDisk recreations.
 
-### 2. Configure
+### 2. Configure the Stack
 
-Copy `compose.yaml` and `.env.example` into the stack (Portainer web editor is fine), then set the Discord token, the three IDs, and the data path:
+Copy `compose.yaml` and `.env.example` into your stack editor, then set `BOT_DATA_PATH`:
 
 ```ini
 BOT_DATA_PATH=/mnt/user/appdata/steam-update-bot/data
 ```
 
-`.env` holds your bot token in plain text. `chmod 600` if it lives on disk, and do not export the appdata share over SMB or NFS.
+> **Security Tip**: Protect your `.env` file (`chmod 600`) and ensure your appdata share is not exported over public SMB/NFS shares.
 
-### 3. Start it
+### 3. Deploy & Verify
 
 ```sh
 docker compose pull
 docker compose up -d
-docker compose logs -f steam-update-bot
-```
-
-Wait for `Discord gateway ready for guild` in the logs. The bot registers its slash commands at that point, so `/steam` will not appear in Discord until you see it.
-
-### 4. Verify
-
-```sh
-docker compose ps
 curl -s http://127.0.0.1:8080/health/ready
 ```
 
-A fresh install reports `Healthy`: with no games monitored yet there is nothing to poll, so only the database and gateway are checked. Add a game with `/steam add`, and its first poll runs within one poll interval (five minutes by default). Readiness only reports stale polling if a monitored game has gone three intervals without a successful poll.
+A clean installation returns `Healthy`. Monitored games begin polling automatically within the configured interval (default: 5 minutes).
 
-### Updating
+---
 
-Pull `latest` (or pin `IMAGE_TAG` to a `sha-*` tag) and recreate the stack. Do not `git pull` and rebuild unless you are running a local checkout on purpose.
+## Slash Commands
 
-### Backups
+All slash command replies are **ephemeral** (visible only to the user invoking them), keeping announcement channels clean.
 
-With `BOT_DATA_PATH` under appdata, the Appdata Backup plugin picks the database up automatically. The bot runs SQLite in WAL mode, so stop the container before copying by hand — otherwise copy `steam-update-bot.db`, `-wal`, and `-shm` together, or you will restore a torn database.
+| Command | Permission | Description |
+| :--- | :--- | :--- |
+| `/steam add app-id:<number>` | Manager Role or Admin | Validates the Steam game, records a silent baseline, and begins polling for new announcements. |
+| `/steam remove app-id:<number>` | Manager Role or Admin | Stops monitoring the game and purges any pending deliveries for it. |
+| `/steam list [page:<number>]` | All Server Members | Lists all monitored games in the server (20 games per page). |
+| `/steam status [app-id:<number>]` | All Server Members | Displays real-time bot health, connection state, outbox statistics, or detailed status for a specific game. |
 
-### Notes
+---
 
-Port 8080 is published on `127.0.0.1` only, so nothing is reachable from your LAN. If another container already holds host port 8080, set `BOT_PORT=127.0.0.1:<port>` in `.env` (or adjust the `ports` mapping in `compose.yaml`); the container port stays 8080.
+## Configuration Reference
 
-The bot ignores `TZ`. `/steam status` always reports UTC, while announcement embeds carry a real timestamp that Discord renders in each viewer's local time.
+Configuration can be provided through `.env` or container environment variables:
 
-## Where the database lives
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `Discord__Token` | *(Required)* | Bot token from Discord Developer Portal. |
+| `Discord__GuildId` | *(Required)* | Target Discord server (guild) snowflake ID. |
+| `Discord__AnnouncementChannelId` | *(Required)* | Channel snowflake ID where announcements are posted. |
+| `Discord__ManagerRoleId` | *(Required)* | Role snowflake ID authorized to add and remove games. |
+| `BOT_DATA_PATH` | Named volume | Absolute host directory path for SQLite database persistence. |
+| `BOT_PORT` | `127.0.0.1:8080` | Host IP and port binding for local healthcheck probes. |
+| `IMAGE_TAG` | `latest` | GHCR container image tag (`latest`, `sha-<commit>`, or semver). |
+| `Steam__PollIntervalMinutes` | `5` | Minutes between poll cycles per game (1–60). |
+| `Steam__MaxConcurrentPolls` | `4` | Max concurrent HTTP requests to Steam during a cycle (1–8). |
+| `Steam__MaxGames` | `50` | Maximum number of monitored games allowed (1–50). |
+| `Steam__OverlapHours` | `24` | Overlap window in hours for deduplicating Steam news queries (1–48). |
+| `Steam__RequestTimeoutSeconds` | `15` | Timeout in seconds for individual Steam HTTP requests (5–60). |
 
-By default the SQLite database lives in the `steam-update-bot-data` named Docker volume. Back it up by stopping the container, then copying the volume with your usual Docker-volume workflow.
+---
 
-The Compose project name is pinned to `steam-update-bot`, so the volume name does not change if you rename or re-clone the checkout directory. Do not remove the top-level `name:` key — without it Compose derives the project name from the folder, and a rename silently starts the bot against a new empty database.
+## Architecture & Reliability
 
-To use a host directory instead, set `BOT_DATA_PATH` in `.env` to an absolute path and it becomes a bind mount. This is the better choice on Unraid, because named volumes live on the Docker vDisk, which the Appdata Backup plugin does not cover and which is destroyed when the vDisk is recreated. See [Recommended setup on Unraid](#recommended-setup-on-unraid) for the full walkthrough.
+### At-Least-Once Delivery & Outbox Pattern
+Steam announcements are discovered and saved to an SQLite outbox inside an EF Core transaction. The delivery worker dequeues pending announcements and posts them to Discord with rate-limiting backoff.
+- **Failures & Retries**: Transient HTTP errors (rate limits, network timeouts, 5xx) retry automatically without exhausting the poison delivery budget.
+- **Safety Thresholds**: If an announcement remains undelivered for over 1 hour, `/health/ready` reports a degraded state and `/steam status` flags the oldest undelivered item.
 
-The image runs as the aspnet `$APP_UID` user (1654). A bind mount keeps the host directory's ownership rather than the image's, so `chown -R 1654:1654` the directory before the first start. The same applies to an existing named volume created under a different uid.
+### SQLite WAL Mode
+The database operates in **Write-Ahead Logging (WAL)** mode with busy timeout handling, preventing locks between polling and Discord delivery workers. When backing up manually, make sure to copy `steam-update-bot.db`, `steam-update-bot.db-wal`, and `steam-update-bot.db-shm` together (or stop the container first).
 
-## Delivery guarantees
+### Health Endpoints
+Bound strictly to `127.0.0.1:8080` by default:
+- `GET /health/live`: Process liveness probe used by Docker `HEALTHCHECK`. Remains healthy across transient Discord reconnects; exits cleanly after 10 minutes disconnected so Docker can restart the container.
+- `GET /health/ready`: Operational readiness probe verifying SQLite database connectivity, Discord gateway state, outbox delivery drain, and freshness of Steam polling.
 
-Announcement delivery is at-least-once. If the process dies in the narrow window between Discord accepting a message and the bot recording its message ID, that announcement is posted again on restart. Duplicates are possible; missed announcements are not.
+---
 
-A publish failure that looks transient (rate limits, 5xx, timeouts) retries indefinitely without counting toward the five-attempt poison budget. To keep an indefinitely stuck outbox from hiding, `/steam status` reports the oldest undelivered announcement, and `/health/ready` fails once anything has been undelivered for more than an hour.
+## Local Development
 
-Health endpoints are bound to localhost only (`127.0.0.1:8080`). Both return compact JSON (`status`, `description`, and check `data`):
-
-- `http://127.0.0.1:8080/health/live` — process liveness. Docker HEALTHCHECK uses this for `unhealthy` visibility. It stays healthy through brief Discord reconnects. After 10 minutes disconnected, the process exits so Compose `restart: unless-stopped` recycles it. Compose does not restart a still-running unhealthy container on its own.
-- `http://127.0.0.1:8080/health/ready` — operational readiness (database, Discord, stale Steam polls, outbox drain). A retrying delivery is degraded; an outbox that has not drained for over an hour is a hard failure. Use this for humans, `docker inspect`, or `/steam status`, not as the container restart probe.
-
-## Commands
-
-| Command | Access | Behavior |
-| --- | --- | --- |
-| `/steam add app-id:<number>` | Manager or Administrator | Validates the Steam game, stores its current announcements as a silent baseline, and starts watching for new ones. |
-| `/steam remove app-id:<number>` | Manager or Administrator | Stops monitoring and drops pending deliveries for that game. |
-| `/steam list page:<number>` | Server members | Lists monitored games, 20 per page. |
-| `/steam status app-id:<optional number>` | Server members | Shows bot or game health, including a truncated last error. It does not expose the bot token. |
-
-## Local development
+Requirements: [.NET 10 SDK](https://dotnet.microsoft.com/download)
 
 ```sh
+# Restore dependencies
 dotnet restore SteamUpdateBot.sln
-dotnet build SteamUpdateBot.sln --no-restore
-dotnet test SteamUpdateBot.sln --no-build
+
+# Build release configuration
+dotnet build SteamUpdateBot.sln --no-restore --configuration Release
+
+# Run automated tests
+dotnet test SteamUpdateBot.sln --no-build --configuration Release
+
+# Format code according to style rules
+dotnet format SteamUpdateBot.sln --verify-no-changes --no-restore
+
+# Run the app locally
 dotnet run --project src/SteamUpdateBot.App
 ```
 
-Use environment variables or .NET user secrets for local Discord credentials. Never put the token in `appsettings.json`.
+For local testing, configure credentials using .NET User Secrets:
+```sh
+dotnet user-secrets init --project src/SteamUpdateBot.App
+dotnet user-secrets set --project src/SteamUpdateBot.App "Discord:Token" "your-bot-token"
+dotnet user-secrets set --project src/SteamUpdateBot.App "Discord:GuildId" "your-guild-id"
+dotnet user-secrets set --project src/SteamUpdateBot.App "Discord:AnnouncementChannelId" "your-channel-id"
+dotnet user-secrets set --project src/SteamUpdateBot.App "Discord:ManagerRoleId" "your-role-id"
+```
+
+---
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is open-source software licensed under the [MIT License](LICENSE).
