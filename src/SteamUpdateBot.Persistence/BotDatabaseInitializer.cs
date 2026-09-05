@@ -12,6 +12,7 @@ public sealed class BotDatabaseInitializer(IDbContextFactory<BotDbContext> conte
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         await using var context = await contextFactory.CreateDbContextAsync(cancellationToken).ConfigureAwait(false);
+        EnsureDatabaseDirectoryExists(context);
         await context.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
         await context.Database.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -21,6 +22,20 @@ public sealed class BotDatabaseInitializer(IDbContextFactory<BotDbContext> conte
         finally
         {
             await context.Database.CloseConnectionAsync().ConfigureAwait(false);
+        }
+    }
+
+    private static void EnsureDatabaseDirectoryExists(BotDbContext context)
+    {
+        var dataSource = context.Database.GetDbConnection().DataSource;
+        if (!string.IsNullOrWhiteSpace(dataSource)
+            && !string.Equals(dataSource, ":memory:", StringComparison.OrdinalIgnoreCase))
+        {
+            var directory = Path.GetDirectoryName(Path.GetFullPath(dataSource));
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
         }
     }
 }

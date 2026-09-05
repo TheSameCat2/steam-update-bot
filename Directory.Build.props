@@ -7,5 +7,9 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <Product>Steam Update Bot</Product>
+    <Authors>Nathan Davies</Authors>
+    <RepositoryUrl>https://github.com/TheSameCat2/steam-update-bot</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 </Project>

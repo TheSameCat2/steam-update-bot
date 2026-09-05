@@ -36,7 +36,7 @@ Find a game's App ID on its Steam store page (the number in `/app/570/` and simi
 
 ## Recommended setup on Unraid
 
-Unraid does not ship `docker compose`. Use Portainer, Compose Manager Plus, or the Compose CLI plugin. Deploy the published image; you do not need a source checkout or a local build. If your stack UI tries to build because `compose.yaml` still has a `build:` key, delete that key. Pulling `ghcr.io/thesamecat2/steam-update-bot` is enough.
+Unraid does not ship `docker compose`. Use Portainer, Compose Manager Plus, or the Compose CLI plugin. Deploy the published image; you do not need a source checkout or a local build. Pulling `ghcr.io/thesamecat2/steam-update-bot` is enough.
 
 ### 1. Data directory
 
@@ -86,7 +86,7 @@ With `BOT_DATA_PATH` under appdata, the Appdata Backup plugin picks the database
 
 ### Notes
 
-Port 8080 is published on `127.0.0.1` only, so nothing is reachable from your LAN. If another container already holds host port 8080, change the left-hand side of the `ports` mapping in `compose.yaml`; the container port stays 8080.
+Port 8080 is published on `127.0.0.1` only, so nothing is reachable from your LAN. If another container already holds host port 8080, set `BOT_PORT=127.0.0.1:<port>` in `.env` (or adjust the `ports` mapping in `compose.yaml`); the container port stays 8080.
 
 The bot ignores `TZ`. `/steam status` always reports UTC, while announcement embeds carry a real timestamp that Discord renders in each viewer's local time.
 
@@ -130,3 +130,7 @@ dotnet run --project src/SteamUpdateBot.App
 ```
 
 Use environment variables or .NET user secrets for local Discord credentials. Never put the token in `appsettings.json`.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

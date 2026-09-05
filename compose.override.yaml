@@ -1,0 +1,6 @@
+# Automatically merged by Docker Compose for local checkouts.
+# Standalone self-hosters deploying only compose.yaml pull the pre-built image from GHCR.
+services:
+  steam-update-bot:
+    build:
+      context: .
