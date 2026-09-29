@@ -3,7 +3,6 @@ using global::Discord.Interactions;
 using global::Discord.Net;
 using global::Discord.WebSocket;
 using Microsoft.Extensions.Options;
-using SteamUpdateBot.App.Health;
 using SteamUpdateBot.Core.Configuration;
 
 namespace SteamUpdateBot.App.Discord;
@@ -23,15 +22,13 @@ public sealed partial class DiscordGatewayHostedService : BackgroundService
         TimeSpan.FromSeconds(60),
     ];
 
-    private static readonly TimeSpan DisconnectWatchInterval = TimeSpan.FromSeconds(30);
-
     private readonly DiscordSocketClient _client;
     private readonly InteractionService _interactions;
     private readonly DiscordInteractionHandler _interactionHandler;
     private readonly DiscordRuntimeState _runtimeState;
+    private readonly DiscordGatewayConnectionMonitor _connectionMonitor;
     private readonly DiscordOptions _options;
     private readonly IHostApplicationLifetime _applicationLifetime;
-    private readonly TimeProvider _timeProvider;
     private readonly ILogger<DiscordGatewayHostedService> _logger;
     private readonly SemaphoreSlim _readyLock = new(1, 1);
     private bool _commandsRegistered;
@@ -51,9 +48,13 @@ public sealed partial class DiscordGatewayHostedService : BackgroundService
         _interactions = interactions;
         _interactionHandler = interactionHandler;
         _runtimeState = runtimeState;
+        _connectionMonitor = new DiscordGatewayConnectionMonitor(
+            runtimeState,
+            timeProvider,
+            applicationLifetime,
+            logger);
         _options = options.Value;
         _applicationLifetime = applicationLifetime;
-        _timeProvider = timeProvider;
         _logger = logger;
     }
 
@@ -71,6 +72,7 @@ public sealed partial class DiscordGatewayHostedService : BackgroundService
         }
 
         _client.Ready += HandleReadyAsync;
+        _client.Connected += HandleConnectedAsync;
         _client.Disconnected += HandleDisconnectedAsync;
         _client.Log += HandleGatewayLogAsync;
 
@@ -80,12 +82,12 @@ public sealed partial class DiscordGatewayHostedService : BackgroundService
             return;
         }
 
-        await WatchDisconnectAsync(stoppingToken).ConfigureAwait(false);
+        await _connectionMonitor.WatchAsync(stoppingToken).ConfigureAwait(false);
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        _runtimeState.SetConnected(false);
+        _connectionMonitor.MarkDisconnected();
 
         try
         {
@@ -106,6 +108,7 @@ public sealed partial class DiscordGatewayHostedService : BackgroundService
         {
             _disposed = true;
             _client.Ready -= HandleReadyAsync;
+            _client.Connected -= HandleConnectedAsync;
             _client.Disconnected -= HandleDisconnectedAsync;
             _client.Log -= HandleGatewayLogAsync;
             _readyLock.Dispose();
@@ -154,28 +157,6 @@ public sealed partial class DiscordGatewayHostedService : BackgroundService
         }
 
         return false;
-    }
-
-    private async Task WatchDisconnectAsync(CancellationToken stoppingToken)
-    {
-        using var timer = new PeriodicTimer(DisconnectWatchInterval, _timeProvider);
-        while (await timer.WaitForNextTickAsync(stoppingToken).ConfigureAwait(false))
-        {
-            if (_runtimeState.DiscordConnected)
-            {
-                continue;
-            }
-
-            var disconnectedSinceUtc = _runtimeState.DiscordDisconnectedSinceUtc;
-            if (disconnectedSinceUtc is not null
-                && _timeProvider.GetUtcNow() - disconnectedSinceUtc.Value
-                    > TimeSpan.FromMinutes(BotLivenessHealthCheck.DisconnectGraceMinutes))
-            {
-                LogGatewayDisconnectWatchdog(_logger, BotLivenessHealthCheck.DisconnectGraceMinutes);
-                _applicationLifetime.StopApplication();
-                return;
-            }
-        }
     }
 
     private async Task HandleReadyAsync()
@@ -241,9 +222,26 @@ public sealed partial class DiscordGatewayHostedService : BackgroundService
         }
     }
 
+    private async Task HandleConnectedAsync()
+    {
+        // Discord.Net raises Connected after a RESUME, but Ready only after a fresh IDENTIFY.
+        await _readyLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_connectionMonitor.TryRestoreAfterResume(_commandsRegistered, InspectConfiguredResources()))
+            {
+                LogGatewayResumeRestored(_logger, _options.GuildId);
+            }
+        }
+        finally
+        {
+            _readyLock.Release();
+        }
+    }
+
     private Task HandleDisconnectedAsync(Exception exception)
     {
-        _runtimeState.SetConnected(false);
+        _connectionMonitor.MarkDisconnected();
         if (exception is null)
         {
             LogGatewayDisconnected(_logger);
@@ -357,8 +355,8 @@ public sealed partial class DiscordGatewayHostedService : BackgroundService
     private static partial void LogGatewayCommandRegistrationRetry(ILogger logger, Exception exception);
 
     [LoggerMessage(
-        EventId = 11,
-        Level = LogLevel.Critical,
-        Message = "Discord gateway has been disconnected for more than {DisconnectGraceMinutes} minutes; stopping the process.")]
-    private static partial void LogGatewayDisconnectWatchdog(ILogger logger, int disconnectGraceMinutes);
+        EventId = 13,
+        Level = LogLevel.Information,
+        Message = "Discord gateway connection restored for guild {GuildId} after a resumed session.")]
+    private static partial void LogGatewayResumeRestored(ILogger logger, ulong guildId);
 }
